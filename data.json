@@ -1,0 +1,22 @@
+{
+  "company": {
+    "name": "エイコーエナジオ株式会社",
+    "hq": "大阪府大阪市",
+    "contact": {
+      "department": "OSAKA OFFICE 事業開発部",
+      "tel": "06-7177-3789"
+    }
+  },
+  "typePresets": [
+    "NON FIT、オフサイトPPA用途",
+    "FIT",
+    "FIP",
+    "自家消費"
+  ],
+  "templates": {
+    "handover": "{companyName}（本社：{companyHq}）は、{siteName}{typeText}太陽光発電所を開発・引き渡しいたしました。\n\n―導入設備の概要—\n{plantKind}（{typeLabel}）\n太陽光パネル：{panelW}W×{panelCount}枚 合計：DC{dcKw}kW\nパワーコンディショナー：{pcsKw}kW×{pcsCount}台　合計：AC{acKw}kW\n\n本件に関する問い合わせ先\n{contactDepartment}（{contactTel}）"
+  },
+  "defaults": {
+    "plantKind": "野立て型太陽光発電所"
+  }
+}
