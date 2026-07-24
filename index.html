@@ -1,612 +1,176 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Equipment Outline Generator</title>
-    
-    <!-- React & ReactDOM (v18) -->
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    
-    <!-- React Router DOM (v5.3.4) -->
-    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-router-dom/5.3.4/react-router-dom.min.js"></script>
-
-    <!-- Babel Standalone -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                        secondary: '#64748b',
-                    }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        body {
-            background-color: #f8fafc;
-            color: #1e293b;
-        }
-        .preview-scroll::-webkit-scrollbar {
-            width: 8px;
-        }
-        .preview-scroll::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        .preview-scroll::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-        .preview-scroll::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>導入事例ジェネレーター</title>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { margin: 0; background: #f1f5f9; color: #1e293b; font-family: "Hiragino Sans", "Yu Gothic", YuGothic, Meiryo, sans-serif; }
+    .preview-frame { width: 100%; height: 760px; border: 0; background: #fff; }
+    @media (max-width: 1023px) { .preview-frame { height: 680px; } }
+  </style>
 </head>
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const { HashRouter, Switch, Route, Link } = ReactRouterDOM;
+  <script type="text/babel">
+    const { useState } = React;
 
-        // ------------------------------------------------------------
-        // Icons (SVG Components) - Replacing Lucide React
-        // ------------------------------------------------------------
-        const IconWrapper = ({ children, size = 20, className = "" }) => (
-            <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width={size} 
-                height={size} 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className={className}
-            >
-                {children}
-            </svg>
-        );
+    const formatNumber = (value, minimumFractionDigits = 0, maximumFractionDigits = 2) => {
+      if (value === '' || Number.isNaN(value)) return '';
+      return new Intl.NumberFormat('ja-JP', { minimumFractionDigits, maximumFractionDigits }).format(value);
+    };
 
-        const FileText = (props) => (
-            <IconWrapper {...props}>
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <line x1="10" y1="9" x2="8" y2="9" />
-            </IconWrapper>
-        );
+    // User-provided text is escaped before being inserted into the preview document.
+    const escapeHtml = (value) => String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
-        const Info = (props) => (
-            <IconWrapper {...props}>
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4" />
-                <path d="M12 8h.01" />
-            </IconWrapper>
-        );
+    const previewDocument = (data, stats) => {
+      const location = data.location || '（場所）';
+      const siteName = data.siteName || '（サイト名）';
+      const equipment = data.equipment || '（太陽光発電設備・蓄電池など）';
+      const isCustom = data.projectType === 'custom';
+      const typeLabel = data.projectType === 'ground' ? '野立て' : data.projectType === 'self' ? '自家消費' : 'カスタム';
+      const summary = data.projectType === 'ground'
+        ? `エイコーエナジオ株式会社は、${location}において、太陽光発電所の開発を行いました。`
+        : data.projectType === 'self'
+          ? `エイコーエナジオ株式会社は、${location}において、${equipment}による自家消費システムの導入支援を行いました。`
+          : (data.customText || 'ここに自由記述の紹介文が表示されます。');
+      const facilityType = data.projectType === 'ground'
+        ? '野立て型太陽光発電所'
+        : data.projectType === 'self'
+          ? '自家消費システム'
+          : 'カスタム';
+      const dcText = stats.dcDisplay ? `${stats.dcDisplay}kW` : '－';
+      const acText = stats.acDisplay ? `${stats.acDisplay}kW` : '－';
+      const panelText = data.panelW && data.panelCount
+        ? `${escapeHtml(data.panelW)}W × ${stats.panelCountDisplay}枚<br>（パネル合計容量：${dcText}）`
+        : '－';
+      const pcsText = data.pcsKw && data.pcsCount
+        ? `${escapeHtml(data.pcsKw)}kW × ${stats.pcsCountDisplay}台<br>（PCS合計容量：${acText}）`
+        : '－';
 
-        const Calculator = (props) => (
-            <IconWrapper {...props}>
-                <rect x="4" y="2" width="16" height="20" rx="2" />
-                <line x1="8" y1="6" x2="16" y2="6" />
-                <line x1="16" y1="14" x2="16" y2="18" />
-                <path d="M16 10h.01" />
-                <path d="M12 10h.01" />
-                <path d="M8 10h.01" />
-                <path d="M12 14h.01" />
-                <path d="M8 14h.01" />
-                <path d="M12 18h.01" />
-                <path d="M8 18h.01" />
-            </IconWrapper>
-        );
+      return `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #222; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Hiragino Sans", "Yu Gothic", YuGothic, Meiryo, sans-serif; }
+  .project-case { padding: 64px 24px; }
+  .project-case__inner { width: 100%; max-width: 960px; margin: 0 auto; }
+  .project-case__header { padding-bottom: 48px; border-bottom: 1px solid #d9d9d9; }
+  .project-case__category { margin: 0 0 16px; color: #666; font-size: 12px; font-weight: 600; letter-spacing: .12em; }
+  .project-case__title { margin: 0; color: #1f2d3d; font-size: clamp(30px, 4vw, 40px); font-weight: 600; line-height: 1.45; letter-spacing: .02em; }
+  .project-case__summary { margin: 28px 0 0; color: #555; font-size: 16px; line-height: 1.9; }
+  .project-case__section, .project-case__contact { padding: 56px 0; border-bottom: 1px solid #d9d9d9; }
+  .project-case__heading { margin: 0 0 28px; color: #1f2d3d; font-size: 22px; font-weight: 600; line-height: 1.5; }
+  .project-case__data { margin: 0; border-top: 1px solid #d9d9d9; }
+  .project-case__data-row { display: grid; grid-template-columns: 220px 1fr; border-bottom: 1px solid #d9d9d9; }
+  dt, dd { margin: 0; padding: 18px 20px; font-size: 15px; line-height: 1.7; }
+  dt, th { color: #444; background: #f6f6f6; font-weight: 600; }
+  dd, td { color: #222; background: #fff; }
+  table { width: 100%; border-collapse: collapse; border-top: 1px solid #d9d9d9; }
+  th, td { padding: 18px 20px; border-bottom: 1px solid #d9d9d9; font-size: 15px; line-height: 1.7; text-align: left; vertical-align: middle; }
+  th { width: 220px; }
+  .project-case__contact { border-bottom: 0; }
+  .project-case__contact-text { margin: 0; color: #555; font-size: 15px; line-height: 1.9; }
+  .project-case__contact-info { margin-top: 24px; color: #333; font-size: 15px; line-height: 1.8; }
+  .project-case__contact-info p { margin: 0; }
+  .project-case__company-name { font-weight: 600; }
+  .project-case__button { display: flex; align-items: center; justify-content: center; width: fit-content; min-width: 240px; margin: 32px auto 0; padding: 15px 32px; border: 1px solid #c62828; color: #fff; background: #c62828; font-size: 15px; font-weight: 600; text-decoration: none; }
+  @media (max-width: 767px) { .project-case { padding: 48px 20px; } .project-case__header { padding-bottom: 36px; } .project-case__title { font-size: 28px; } .project-case__summary { margin-top: 20px; font-size: 15px; } .project-case__section, .project-case__contact { padding: 40px 0; } .project-case__heading { margin-bottom: 20px; font-size: 20px; } .project-case__data-row { grid-template-columns: 1fr; } dt, dd, th, td { padding: 14px 16px; } dt { border-bottom: 1px solid #e6e6e6; } th { width: 46%; } .project-case__button { width: 100%; max-width: 360px; } }
+</style></head><body>
+<section class="project-case"><div class="project-case__inner">
+  <header class="project-case__header">
+    <p class="project-case__category">${typeLabel}</p>
+    <h1 class="project-case__title">${escapeHtml(location)}<br>${escapeHtml(siteName)}</h1>
+    <p class="project-case__summary">${escapeHtml(summary).replace(/\n/g, '<br>')}</p>
+  </header>
+  <section class="project-case__section"><h2 class="project-case__heading">プロジェクト概要</h2>
+    <dl class="project-case__data">
+      <div class="project-case__data-row"><dt>所在地</dt><dd>${escapeHtml(location)}</dd></div>
+      <div class="project-case__data-row"><dt>発電所形式</dt><dd>${facilityType}</dd></div>
+      <div class="project-case__data-row"><dt>種別</dt><dd>${typeLabel}</dd></div>
+      <div class="project-case__data-row"><dt>DC容量</dt><dd>${dcText}</dd></div>
+      <div class="project-case__data-row"><dt>AC容量</dt><dd>${acText}</dd></div>
+    </dl>
+  </section>
+  <section class="project-case__section"><h2 class="project-case__heading">導入設備</h2>
+    <table><tbody><tr><th scope="row">太陽光パネル</th><td>${panelText}</td></tr><tr><th scope="row">パワーコンディショナー</th><td>${pcsText}</td></tr></tbody></table>
+  </section>
+  <section class="project-case__contact"><h2 class="project-case__heading">お問い合わせ</h2>
+    <p class="project-case__contact-text">本件および太陽光発電所の開発に関するご相談は、下記までお問い合わせください。</p>
+    <div class="project-case__contact-info"><p class="project-case__company-name">エイコーエナジオ株式会社</p><p>本社 営業開発部</p><p>TEL：06-7177-3789</p></div>
+    <a href="#" class="project-case__button">お問い合わせ</a>
+  </section>
+</div></section></body></html>`;
+    };
 
-        const RefreshCw = (props) => (
-            <IconWrapper {...props}>
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M8 16H3v5" />
-            </IconWrapper>
-        );
+    const App = () => {
+      const [formData, setFormData] = useState({
+        projectType: 'ground', location: '', siteName: '', equipment: '', customText: '',
+        panelW: '', panelCount: '', pcsKw: '', pcsCount: ''
+      });
 
-        const Copy = (props) => (
-            <IconWrapper {...props}>
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </IconWrapper>
-        );
+      const handleInput = (event) => {
+        const { name, value } = event.target;
+        setFormData((current) => ({ ...current, [name]: value }));
+      };
 
-        const Check = (props) => (
-            <IconWrapper {...props}>
-                <polyline points="20 6 9 17 4 12" />
-            </IconWrapper>
-        );
+      const reset = () => setFormData({
+        projectType: 'ground', location: '', siteName: '', equipment: '', customText: '',
+        panelW: '', panelCount: '', pcsKw: '', pcsCount: ''
+      });
 
-        const AlertCircle = (props) => (
-            <IconWrapper {...props}>
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-            </IconWrapper>
-        );
+      const panelW = Number.parseFloat(formData.panelW);
+      const panelCount = Number.parseFloat(formData.panelCount);
+      const pcsKw = Number.parseFloat(formData.pcsKw);
+      const pcsCount = Number.parseFloat(formData.pcsCount);
+      const dc = Number.isFinite(panelW) && Number.isFinite(panelCount) ? panelW * panelCount / 1000 : NaN;
+      const ac = Number.isFinite(pcsKw) && Number.isFinite(pcsCount) ? pcsKw * pcsCount : NaN;
+      const stats = {
+        dcDisplay: Number.isFinite(dc) ? formatNumber(dc, 2, 2) : '',
+        acDisplay: Number.isFinite(ac) ? formatNumber(ac, 0, 2) : '',
+        panelCountDisplay: Number.isFinite(panelCount) ? formatNumber(panelCount) : '',
+        pcsCountDisplay: Number.isFinite(pcsCount) ? formatNumber(pcsCount) : ''
+      };
 
-        // ------------------------------------------------------------
-        // Utility Functions
-        // ------------------------------------------------------------
-        const formatNumber = (num, minDigits = 0, maxDigits = 2) => {
-            if (num === '' || isNaN(num)) return '';
-            return new Intl.NumberFormat('ja-JP', {
-                minimumFractionDigits: minDigits,
-                maximumFractionDigits: maxDigits
-            }).format(num);
-        };
-
-        // ------------------------------------------------------------
-        // Components
-        // ------------------------------------------------------------
-
-        const Toast = ({ message, type, onClose }) => {
-            useEffect(() => {
-                const timer = setTimeout(() => {
-                    onClose();
-                }, 3000);
-                return () => clearTimeout(timer);
-            }, [onClose]);
-
-            const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-
-            return (
-                <div className={`fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in-up z-50 transition-all duration-300`}>
-                    {type === 'success' ? <Check size={20} /> : <AlertCircle size={20} />}
-                    <span>{message}</span>
+      return <div className="min-h-screen">
+        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+          <div className="mx-auto flex h-16 max-w-screen-2xl items-center px-4 sm:px-6">
+            <div><p className="text-xs font-semibold tracking-widest text-slate-500">EIKOH ENERGIO</p><h1 className="text-lg font-bold text-slate-800">導入事例ジェネレーター</h1></div>
+          </div>
+        </header>
+        <main className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 lg:py-8">
+          <div className="grid gap-6 lg:grid-cols-[390px_minmax(0,1fr)] xl:grid-cols-[430px_minmax(0,1fr)]">
+            <section className="h-fit rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+              <div className="mb-5 border-b border-slate-100 pb-4"><h2 className="text-lg font-bold">入力内容</h2><p className="mt-1 text-sm text-slate-500">入力すると右のプレビューに反映されます。</p></div>
+              <div className="space-y-5">
+                <div><label htmlFor="projectType" className="mb-1.5 block text-sm font-semibold text-slate-700">種別</label><select id="projectType" name="projectType" value={formData.projectType} onChange={handleInput} className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200"><option value="ground">野立て</option><option value="self">自家消費</option><option value="custom">カスタム</option></select></div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <div><label htmlFor="location" className="mb-1.5 block text-sm font-semibold text-slate-700">場所</label><input id="location" type="text" name="location" value={formData.location} onChange={handleInput} placeholder="例：滋賀県米原市" className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200" /></div>
+                  <div><label htmlFor="siteName" className="mb-1.5 block text-sm font-semibold text-slate-700">サイト名（発電所名）</label><input id="siteName" type="text" name="siteName" value={formData.siteName} onChange={handleInput} placeholder="例：太陽光発電所" className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200" /></div>
                 </div>
-            );
-        };
+                {formData.projectType === 'self' && <div><label htmlFor="equipment" className="mb-1.5 block text-sm font-semibold text-slate-700">導入設備</label><input id="equipment" type="text" name="equipment" value={formData.equipment} onChange={handleInput} placeholder="例：太陽光発電設備と蓄電池" className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200" /><p className="mt-1 text-xs text-slate-500">紹介文内の「××」に反映されます。</p></div>}
+                {formData.projectType === 'custom' && <div><label htmlFor="customText" className="mb-1.5 block text-sm font-semibold text-slate-700">自由記述</label><textarea id="customText" name="customText" value={formData.customText} onChange={handleInput} rows="4" placeholder="プレビューに表示する紹介文を入力してください。" className="w-full resize-y rounded-md border border-slate-300 px-3 py-2.5 text-sm shadow-sm focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200" /></div>}
+                <fieldset className="rounded-lg border border-slate-200 bg-slate-50 p-4"><legend className="px-1 text-sm font-bold text-slate-700">導入設備</legend><div className="mt-2 grid grid-cols-2 gap-3"><div><label htmlFor="panelW" className="mb-1 block text-xs font-medium text-slate-600">パネル容量 (W)</label><input id="panelW" type="number" min="0" name="panelW" value={formData.panelW} onChange={handleInput} placeholder="595" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div><div><label htmlFor="panelCount" className="mb-1 block text-xs font-medium text-slate-600">パネル枚数</label><input id="panelCount" type="number" min="0" name="panelCount" value={formData.panelCount} onChange={handleInput} placeholder="352" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div><div><label htmlFor="pcsKw" className="mb-1 block text-xs font-medium text-slate-600">PCS容量 (kW)</label><input id="pcsKw" type="number" min="0" step="0.1" name="pcsKw" value={formData.pcsKw} onChange={handleInput} placeholder="50" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div><div><label htmlFor="pcsCount" className="mb-1 block text-xs font-medium text-slate-600">PCS台数</label><input id="pcsCount" type="number" min="0" name="pcsCount" value={formData.pcsCount} onChange={handleInput} placeholder="3" className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></div></div><div className="mt-3 grid grid-cols-2 gap-3 text-sm"><p className="rounded bg-white p-2 text-slate-600">DC容量 <span className="float-right font-bold text-slate-800">{stats.dcDisplay || '－'} {stats.dcDisplay && 'kW'}</span></p><p className="rounded bg-white p-2 text-slate-600">AC容量 <span className="float-right font-bold text-slate-800">{stats.acDisplay || '－'} {stats.acDisplay && 'kW'}</span></p></div></fieldset>
+              </div>
+              <button type="button" onClick={reset} className="mt-6 w-full rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">入力をリセット</button>
+            </section>
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-200 bg-slate-800 px-5 py-3"><h2 className="font-bold text-white">ライブプレビュー</h2><span className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-200">表示イメージ</span></div><iframe title="導入事例プレビュー" className="preview-frame" srcDoc={previewDocument(formData, stats)} /></section>
+          </div>
+        </main>
+      </div>;
+    };
 
-        const Skeleton = () => (
-            <div className="animate-pulse space-y-4 w-full">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-                <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
-        );
-
-        const About = () => (
-            <div className="max-w-4xl mx-auto p-6">
-                <div className="flex items-center gap-2 mb-6">
-                    <Link to="/" className="text-blue-500 hover:underline flex items-center gap-1">
-                        &larr; ジェネレーターに戻る
-                    </Link>
-                </div>
-                <h1 className="text-2xl font-bold mb-4">このツールについて</h1>
-                <div className="bg-white p-6 rounded-lg shadow-sm space-y-4 text-gray-700 leading-relaxed">
-                    <p>
-                        太陽光発電設備の引渡し時に使用する「設備概要文」を自動生成するツールです。
-                        必要な項目を入力するだけで、定型のフォーマットに数値を埋め込んだ文章を作成できます。
-                    </p>
-                    
-                    <h2 className="text-xl font-bold mt-6 mb-2">主な機能</h2>
-                    <ul className="list-disc pl-5 space-y-1">
-                        <li>入力内容のリアルタイムプレビュー</li>
-                        <li>DC容量（パネル出力）の自動計算：(W × 枚数) / 1000</li>
-                        <li>AC容量（PCS出力）の自動計算：kW × 台数</li>
-                        <li>ワンクリックでのコピー機能</li>
-                    </ul>
-
-                    <h2 className="text-xl font-bold mt-6 mb-2">注意事項</h2>
-                    <ul className="list-disc pl-5 space-y-1">
-                        <li>このツールは入力データをサーバーに送信・保存しません。</li>
-                        <li>「種類」がプリセットにない場合は「カスタム」を選択して手動入力してください。</li>
-                        <li>計算結果のDC容量は必ず小数第2位まで表示されます（例：1156.99）。</li>
-                    </ul>
-                </div>
-            </div>
-        );
-
-        const Generator = () => {
-            const [config, setConfig] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [toast, setToast] = useState(null);
-
-            const [formData, setFormData] = useState({
-                siteName: '',
-                typeSelect: '',
-                typeCustom: '',
-                panelW: '',
-                panelCount: '',
-                pcsKw: '',
-                pcsCount: '',
-            });
-
-            useEffect(() => {
-                const loadData = async () => {
-                    try {
-                        const response = await fetch('data.json');
-                        if (!response.ok) throw new Error('Failed to load configuration');
-                        const data = await response.json();
-                        
-                        setConfig(data);
-                        
-                        if (data.typePresets && data.typePresets.length > 0) {
-                            setFormData(prev => ({ ...prev, typeSelect: data.typePresets[0] }));
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        setError('マスターデータの読み込みに失敗しました。');
-                    } finally {
-                        setLoading(false);
-                    }
-                };
-                loadData();
-            }, []);
-
-            const handleInput = (e) => {
-                const { name, value } = e.target;
-                setFormData(prev => ({ ...prev, [name]: value }));
-            };
-
-            const handleReset = () => {
-                if (!config) return;
-                setFormData({
-                    siteName: '',
-                    typeSelect: config.typePresets[0] || 'custom',
-                    typeCustom: '',
-                    panelW: '',
-                    panelCount: '',
-                    pcsKw: '',
-                    pcsCount: '',
-                });
-                showToast('入力をリセットしました', 'success');
-            };
-
-            const calculateStats = () => {
-                const pW = parseFloat(formData.panelW);
-                const pCount = parseFloat(formData.panelCount);
-                const pcsK = parseFloat(formData.pcsKw);
-                const pcsCount = parseFloat(formData.pcsCount);
-
-                let dcTotal = 0;
-                let dcTotalFormatted = '0.00';
-                if (!isNaN(pW) && !isNaN(pCount)) {
-                    dcTotal = (pW * pCount) / 1000;
-                    dcTotalFormatted = dcTotal.toFixed(2);
-                }
-
-                let acTotal = 0;
-                let acTotalFormatted = '0';
-                if (!isNaN(pcsK) && !isNaN(pcsCount)) {
-                    acTotal = pcsK * pcsCount;
-                    acTotalFormatted = parseFloat(acTotal.toFixed(2)).toString();
-                }
-
-                return {
-                    dcTotal,
-                    dcTotalFormatted,
-                    dcTotalDisplay: formatNumber(dcTotal, 2, 2),
-                    acTotal,
-                    acTotalFormatted,
-                    acTotalDisplay: formatNumber(acTotal, 0, 2),
-                    panelCountDisplay: formatNumber(pCount),
-                    pcsCountDisplay: formatNumber(pcsCount)
-                };
-            };
-
-            const generateText = () => {
-                if (!config) return '';
-                
-                const stats = calculateStats();
-                const tpl = config.templates?.handover || '';
-                
-                const isCustom = formData.typeSelect === 'custom';
-                const typeText = isCustom ? formData.typeCustom : formData.typeSelect;
-                
-                let text = tpl
-                    .replace(/{companyName}/g, config.company?.name || '')
-                    .replace(/{companyHq}/g, config.company?.hq || '')
-                    .replace(/{contactDepartment}/g, config.company?.contact?.department || '')
-                    .replace(/{contactTel}/g, config.company?.contact?.tel || '')
-                    .replace(/{plantKind}/g, config.defaults?.plantKind || '')
-                    .replace(/{siteName}/g, formData.siteName || '（サイト名）')
-                    .replace(/{typeText}/g, typeText || '')
-                    .replace(/{typeLabel}/g, typeText || '')
-                    .replace(/{panelW}/g, formData.panelW || '0')
-                    .replace(/{panelCount}/g, stats.panelCountDisplay || '0')
-                    .replace(/{dcKw}/g, stats.dcTotalDisplay)
-                    .replace(/{pcsKw}/g, formData.pcsKw || '0')
-                    .replace(/{pcsCount}/g, stats.pcsCountDisplay || '0')
-                    .replace(/{acKw}/g, stats.acTotalDisplay);
-
-                return text;
-            };
-
-            const handleCopy = async () => {
-                const text = generateText();
-                try {
-                    await navigator.clipboard.writeText(text);
-                    showToast('コピーしました！', 'success');
-                } catch (err) {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-                    textArea.style.position = "fixed";
-                    textArea.style.left = "-9999px";
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    
-                    try {
-                        document.execCommand('copy');
-                        document.body.removeChild(textArea);
-                        showToast('コピーしました！', 'success');
-                    } catch (fallbackErr) {
-                        console.error(fallbackErr);
-                        document.body.removeChild(textArea);
-                        showToast('コピーに失敗しました', 'error');
-                    }
-                }
-            };
-
-            const showToast = (msg, type) => {
-                setToast({ message: msg, type });
-            };
-
-            const generatedText = generateText();
-            const stats = calculateStats();
-
-            return (
-                <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
-                    <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <FileText className="text-blue-600" />
-                                <h1 className="text-lg font-bold text-slate-800">Equipment Outline Generator</h1>
-                            </div>
-                            <Link to="/about" className="text-sm text-slate-500 hover:text-blue-600 flex items-center gap-1">
-                                <Info size={16} /> <span>使い方</span>
-                            </Link>
-                        </div>
-                    </header>
-
-                    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        {error && (
-                            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded shadow-sm">
-                                <div className="flex">
-                                    <div className="flex-shrink-0">
-                                        <AlertCircle className="h-5 w-5 text-red-400" />
-                                    </div>
-                                    <div className="ml-3">
-                                        <p className="text-sm text-red-700">{error}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {loading ? (
-                            <div className="max-w-3xl mx-auto"><Skeleton /></div>
-                        ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                        <h2 className="text-lg font-bold mb-4 flex items-center gap-2 border-b pb-2 border-slate-100">
-                                            <Calculator size={20} className="text-slate-400" />
-                                            入力フォーム
-                                        </h2>
-                                        
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">サイト名</label>
-                                                <input
-                                                    type="text"
-                                                    name="siteName"
-                                                    value={formData.siteName}
-                                                    onChange={handleInput}
-                                                    placeholder="例：福岡県筑後市②"
-                                                    className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1">種類</label>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    <select
-                                                        name="typeSelect"
-                                                        value={formData.typeSelect}
-                                                        onChange={handleInput}
-                                                        className="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                    >
-                                                        {config.typePresets?.map(type => (
-                                                            <option key={type} value={type}>{type}</option>
-                                                        ))}
-                                                        <option value="custom">カスタム（手入力）</option>
-                                                    </select>
-                                                    {formData.typeSelect === 'custom' && (
-                                                        <input
-                                                            type="text"
-                                                            name="typeCustom"
-                                                            value={formData.typeCustom}
-                                                            onChange={handleInput}
-                                                            placeholder="種類を入力"
-                                                            className="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                        />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">太陽光パネル</label>
-                                                    <div className="space-y-3">
-                                                        <div>
-                                                            <label className="block text-sm text-slate-600 mb-1">容量 (W)</label>
-                                                            <input
-                                                                type="number"
-                                                                name="panelW"
-                                                                value={formData.panelW}
-                                                                onChange={handleInput}
-                                                                min="0"
-                                                                className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                                placeholder="590"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-slate-600 mb-1">枚数 (枚)</label>
-                                                            <input
-                                                                type="number"
-                                                                name="panelCount"
-                                                                value={formData.panelCount}
-                                                                onChange={handleInput}
-                                                                min="0"
-                                                                className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                                placeholder="1961"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-3 text-right">
-                                                        <span className="text-xs text-slate-500">合計 DC</span>
-                                                        <div className="text-lg font-bold text-blue-600">
-                                                            {stats.dcTotalDisplay} <span className="text-sm font-normal text-slate-500">kW</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">パワーコンディショナー</label>
-                                                    <div className="space-y-3">
-                                                        <div>
-                                                            <label className="block text-sm text-slate-600 mb-1">容量 (kW)</label>
-                                                            <input
-                                                                type="number"
-                                                                name="pcsKw"
-                                                                value={formData.pcsKw}
-                                                                onChange={handleInput}
-                                                                min="0"
-                                                                step="0.1"
-                                                                className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                                placeholder="100"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-sm text-slate-600 mb-1">台数 (台)</label>
-                                                            <input
-                                                                type="number"
-                                                                name="pcsCount"
-                                                                value={formData.pcsCount}
-                                                                onChange={handleInput}
-                                                                min="0"
-                                                                className="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                                                                placeholder="10"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="mt-3 text-right">
-                                                        <span className="text-xs text-slate-500">合計 AC</span>
-                                                        <div className="text-lg font-bold text-green-600">
-                                                            {stats.acTotalDisplay} <span className="text-sm font-normal text-slate-500">kW</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
-                                            <button
-                                                onClick={handleReset}
-                                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                            >
-                                                <RefreshCw size={16} /> リセット
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="lg:sticky lg:top-24 space-y-4 h-fit">
-                                    <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col h-full">
-                                        <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
-                                            <h2 className="font-bold flex items-center gap-2">
-                                                <FileText size={20} /> 生成プレビュー
-                                            </h2>
-                                            <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">Read Only</span>
-                                        </div>
-                                        
-                                        <div className="p-0 bg-slate-50 flex-grow relative group">
-                                            <pre className="preview-scroll w-full h-full min-h-[300px] p-6 text-sm md:text-base leading-relaxed whitespace-pre-wrap font-mono text-slate-800 overflow-auto bg-white">
-                                                {generatedText}
-                                            </pre>
-                                            
-                                            <div className="absolute bottom-4 right-4 md:hidden">
-                                                <button
-                                                    onClick={handleCopy}
-                                                    className="bg-blue-600 text-white p-3 rounded-full shadow-lg active:scale-95 transition-transform"
-                                                >
-                                                    <Copy size={24} />
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-4 bg-slate-50 border-t border-slate-200 hidden md:block">
-                                            <button
-                                                onClick={handleCopy}
-                                                className="w-full flex items-center justify-center gap-2 px-6 py-3 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-sm"
-                                            >
-                                                <Copy size={20} /> テキストをコピーする
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
-                                        <p className="flex items-start gap-2">
-                                            <Info size={16} className="mt-0.5 flex-shrink-0" />
-                                            <span>
-                                                入力内容は自動的にプレビューに反映されます。<br/>
-                                                コピーボタンを押すとクリップボードに保存されます。
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </main>
-
-                    {toast && (
-                        <Toast
-                            message={toast.message}
-                            type={toast.type}
-                            onClose={() => setToast(null)}
-                        />
-                    )}
-                </div>
-            );
-        };
-
-        const App = () => {
-            return (
-                <HashRouter>
-                    <Switch>
-                        <Route exact path="/">
-                            <Generator />
-                        </Route>
-                        <Route path="/about">
-                            <About />
-                        </Route>
-                    </Switch>
-                </HashRouter>
-            );
-        };
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
