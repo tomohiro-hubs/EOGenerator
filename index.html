@@ -84,7 +84,9 @@
   .project-case__contact-info { margin-top: 24px; color: #333; font-size: 15px; line-height: 1.8; }
   .project-case__contact-info p { margin: 0; }
   .project-case__company-name { font-weight: 600; }
-  .project-case__button { display: flex; align-items: center; justify-content: center; width: fit-content; min-width: 240px; margin: 32px auto 0; padding: 15px 32px; border: 1px solid #c62828; color: #fff; background: #c62828; font-size: 15px; font-weight: 600; text-decoration: none; }
+  .project-case__button { display: flex; align-items: center; justify-content: center; width: fit-content; min-width: 240px; margin: 32px auto 0; padding: 15px 32px; border: 1px solid #c62828; color: #fff; background: #c62828; font-size: 15px; font-weight: 600; text-decoration: none; transition: color .2s ease, background-color .2s ease; }
+  .project-case__button:hover { color: #c62828; background: #fff; }
+  .project-case__button:focus-visible { outline: 3px solid rgba(198, 40, 40, .3); outline-offset: 3px; }
   @media (max-width: 767px) { .project-case { padding: 48px 20px; } .project-case__header { padding-bottom: 36px; } .project-case__title { font-size: 28px; } .project-case__summary { margin-top: 20px; font-size: 15px; } .project-case__section, .project-case__contact { padding: 40px 0; } .project-case__heading { margin-bottom: 20px; font-size: 20px; } .project-case__data-row { grid-template-columns: 1fr; } dt, dd, th, td { padding: 14px 16px; } dt { border-bottom: 1px solid #e6e6e6; } th { width: 46%; } .project-case__button { width: 100%; max-width: 360px; } }
 </style></head><body>
 <section class="project-case"><div class="project-case__inner">
